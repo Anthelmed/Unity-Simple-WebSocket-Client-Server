@@ -106,8 +106,8 @@
           </e>
         </e>
         <e p="Scripts" t="Include">
-          <e p="TextMessage.cs" t="Include" />
           <e p="WebSocketClient.cs" t="Include" />
+          <e p="WebSocketMessage.cs" t="Include" />
         </e>
         <e p="Server\node_modules" t="ExcludeRecursive">
           <e p="ws" t="IncludeRecursive" />

@@ -1,26 +1,23 @@
-﻿using Newtonsoft.Json;
-using SimpleMsgPack;
+﻿using SimpleMsgPack;
+using UnityEngine;
 
-internal class TextMessage
+public class WebSocketMessage
 {
-    [JsonProperty ("user_id")]
     public int UserID {
         get; set;
     }
 
-    [JsonProperty ("type")]
     public string Type {
         get; set;
     }
 
-    [JsonProperty ("message")]
-    public string Message {
+    public Transform Message {
         get; set;
     }
 
     public override string ToString ()
     {        
-        return JsonConvert.SerializeObject (this);
+        return JsonUtility.ToJson(this);
     }
 
     public byte[] ToByte()
@@ -29,12 +26,12 @@ internal class TextMessage
         
         msgPack.ForcePathObject("p.user_id").AsInteger = UserID;
         msgPack.ForcePathObject("p.type").AsString = Type;
-        msgPack.ForcePathObject("p.message").AsString = Message;
+        msgPack.ForcePathObject("p.message").AsString = JsonUtility.ToJson(Message);
         
         return msgPack.Encode2Bytes();
     }
 
-    public static string Parse(byte[] data)
+    public static WebSocketMessage Parse(byte[] data)
     {
         var msgPack = new MsgPack();
         
@@ -42,13 +39,20 @@ internal class TextMessage
 
         var id = (int) msgPack.ForcePathObject("p.user_id").AsInteger;
         var type = msgPack.ForcePathObject("p.type").AsString;
-        var message = msgPack.ForcePathObject("p.message").AsString;
+        var message = JsonUtility.FromJson<Transform>(msgPack.ForcePathObject("p.message").AsString);
 
-        return new TextMessage
+        return new WebSocketMessage
         {
             UserID = id,
             Type = type,
             Message = message
-        }.ToString();
+        };
+    }
+    
+    public struct Transform 
+    {
+        public Vector3 Position;
+        public Quaternion Rotation;
+        public Vector3 Scale;
     }
 }

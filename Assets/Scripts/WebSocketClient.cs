@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
 using WebSocketSharp;
 
@@ -16,19 +12,24 @@ public class WebSocketClient : MonoBehaviour
 
     public static WebSocketClient Instance;
     
+    public delegate void MessageAction(WebSocketMessage webSocketMessage);
+    public static event MessageAction OnMessageReceived;
+    
     private void Awake()
     {
-        _id = gameObject.GetInstanceID();
-
         if (Instance == null)
             Instance = this;
         else
             Destroy(this);
+        
+        _id = gameObject.GetInstanceID();
+        
+        _webSocket = new WebSocket(url);
+        ConnectClient();
     }
 
-    private void Start()
+    private void ConnectClient()
     {
-        _webSocket = new WebSocket(url);
         _webSocket.OnOpen += OnOpen;
         _webSocket.OnClose += OnClose;
         _webSocket.OnError += OnError;
@@ -49,6 +50,11 @@ public class WebSocketClient : MonoBehaviour
     private void OnClose(object sender, CloseEventArgs e)
     {
         if (showLog) Debug.Log("WebSocketClient - OnClose");
+        
+        _webSocket.OnOpen -= OnOpen;
+        _webSocket.OnClose -= OnClose;
+        _webSocket.OnError -= OnError;
+        _webSocket.OnMessage -= OnMessage;
     }
     
     private void OnError(object sender, ErrorEventArgs e)
@@ -62,19 +68,17 @@ public class WebSocketClient : MonoBehaviour
 
         if (e.IsBinary) 
         {
-            var data = ProcessTextMessage (e.RawData);
+            var webSocketMessage = ProcessMessage (e.RawData);
             
-            var id = (uint) data["user_id"];
-            var type = (string) data["type"];
-            var message = (string) data["message"];
-
-            if (id == _id) return;
+            //if (webSocketMessage.UserID == _id) return;
             
-            //Send Event Action
+            Debug.Log("WebSocketClient - OnMessage - ID : " + webSocketMessage.UserID);
+            Debug.Log("WebSocketClient - OnMessage - Type : " + webSocketMessage.Type);
+            Debug.Log("WebSocketClient - OnMessage - Position : " + webSocketMessage.Message.Position);
+            Debug.Log("WebSocketClient - OnMessage - Rotation : " + webSocketMessage.Message.Rotation);
+            Debug.Log("WebSocketClient - OnMessage - Scale : " + webSocketMessage.Message.Scale);
             
-            Debug.Log("id : " + id);
-            Debug.Log("type : " + type);
-            Debug.Log("message : " + message);
+            OnMessageReceived?.Invoke(webSocketMessage);
         }
     }
     
@@ -82,15 +86,20 @@ public class WebSocketClient : MonoBehaviour
      * Methods
      */
 
-    public void Send(string type, string text)
+    public void Send(string type, WebSocketMessage.Transform message)
     {
-        
-        _webSocket.Send (CreateTextMessage(type, text));
+        if (!_webSocket.IsAlive)
+        {
+            ConnectClient();
+            return;
+        }
+                    
+        _webSocket.Send (CreateMessage(type, message));
     }
     
-    private byte[] CreateTextMessage (string type, string message)
+    private byte[] CreateMessage (string type, WebSocketMessage.Transform message)
     {
-        return new TextMessage {
+        return new WebSocketMessage {
                 UserID = _id,
                 Type = type,
                 Message = message
@@ -98,8 +107,8 @@ public class WebSocketClient : MonoBehaviour
             .ToByte();
     }
 
-    private JObject ProcessTextMessage(byte[] data)
+    private WebSocketMessage ProcessMessage(byte[] data)
     {
-        return JObject.Parse(TextMessage.Parse(data));        
+        return WebSocketMessage.Parse(data);        
     }
 }
